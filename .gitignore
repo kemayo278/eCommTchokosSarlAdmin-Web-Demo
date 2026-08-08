@@ -1,0 +1,13 @@
+/node_modules
+/.next
+/out
+/build
+.env*.local
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+
+# Archives
+src.zip
+src1.zip
+*.zip
