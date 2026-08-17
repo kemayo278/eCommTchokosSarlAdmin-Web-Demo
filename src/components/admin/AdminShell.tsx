@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Bell,
@@ -15,8 +15,8 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
+import axiosClient, { getStoredToken } from "@/lib/api/axiosClient";
 import { initiales } from "@/lib/format";
-import { notificationsAdmin } from "@/lib/data";
 import Sidebar from "./Sidebar";
 import {
   Command,
@@ -41,9 +41,10 @@ type QuickAction = {
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
-  const nonLues = notificationsAdmin.filter((n) => !n.lu).length;
+  const [nonLues, setNonLues] = useState(0);
 
   const quickActions: QuickAction[] = [
     { label: "Tableau de bord", description: "Retourner à l’accueil admin", href: "/dashboard", icon: LayoutDashboard, iconClass: "bg-primary-soft text-primary" },
@@ -66,9 +67,28 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   );
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/auth/login");
-    if (!loading && user?.mustChangePassword) router.replace("/account/change-password?forced=true");
-  }, [loading, user, router]);
+    const token = getStoredToken();
+    if (!token || (!loading && !user)) {
+      router.replace(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    if (!loading && user?.mustChangePassword) {
+      router.replace("/account/change-password?forced=true");
+    }
+  }, [loading, user, router, pathname]);
+
+  useEffect(() => {
+    if (!user) return;
+    function fetchUnread() {
+      axiosClient
+        .get<{ data: { read_at: string | null }[] }>("/v1/my-notifications", { params: { page: 1 } })
+        .then(({ data }) => setNonLues(data.data.filter((n) => !n.read_at).length))
+        .catch(() => {});
+    }
+    fetchUnread();
+    const id = setInterval(fetchUnread, 60_000);
+    return () => clearInterval(id);
+  }, [user]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -149,7 +169,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               <Bell className="h-5 w-5" />
               {nonLues > 0 && (
                 <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-danger text-[9px] font-bold text-white">
-                  {nonLues}
+                  {nonLues > 9 ? "9+" : nonLues}
                 </span>
               )}
             </Link>

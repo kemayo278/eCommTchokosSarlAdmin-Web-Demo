@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, CheckCircle2, Loader2, XCircle } from "lucide-react";
-import { PageHeader, SectionCard, Badge } from "@/components/ui/primitives";
+import { ChevronLeft, ChevronRight, CheckCircle2, Loader2, Smartphone, XCircle } from "lucide-react";
+import { PageHeader, Badge } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import {
   Dialog,
@@ -25,6 +25,17 @@ type ProcessStatus = "completed" | "cancelled";
 interface ProcessModal {
   payout: PayoutRequest;
   action: ProcessStatus;
+}
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  om: "Orange Money",
+  mtn: "MTN MoMo",
+  wave: "Wave",
+  bank: "Virement",
+};
+
+function paymentLabel(method: string) {
+  return PAYMENT_METHOD_LABELS[method] ?? method;
 }
 
 function StatusBadge({ status }: { status: PayoutRequest["status"] }) {
@@ -51,14 +62,20 @@ export default function PayoutsList() {
     setLoading(true);
     setError(null);
     axiosClient
-      .get<{ data: PayoutRequest[]; current_page: number; last_page: number; total: number }>(
+      .get<PayoutRequest[] | { data: PayoutRequest[]; current_page: number; last_page: number; total: number }>(
         "/v1/influencer/payouts/all",
         { params: { page } }
       )
       .then(({ data }) => {
-        setPayouts(data.data);
-        setLastPage(data.last_page);
-        setTotal(data.total);
+        if (Array.isArray(data)) {
+          setPayouts(data);
+          setLastPage(1);
+          setTotal(data.length);
+        } else {
+          setPayouts(data.data);
+          setLastPage(data.last_page);
+          setTotal(data.total);
+        }
       })
       .catch((err) => setError(handleApiError(err, "Impossible de charger les demandes")))
       .finally(() => setLoading(false));
@@ -75,21 +92,23 @@ export default function PayoutsList() {
     if (!modal) return;
     setProcessing(true);
     try {
-      await axiosClient.post(`/influencer/payouts/${modal.payout.id}/process`, {
+      await axiosClient.post(`/v1/influencer/payouts/${modal.payout.id}/process`, {
         status: modal.action,
         notes: notes || undefined,
       });
       setPayouts((prev) =>
         prev.map((p) =>
-          p.id === modal.payout.id ? { ...p, status: modal.action, notes } : p
+          p.id === modal.payout.id
+            ? { ...p, status: modal.action, notes: notes || null }
+            : p
         )
       );
       toast({
         title: modal.action === "completed" ? "Retrait approuvé" : "Retrait annulé",
         description:
           modal.action === "completed"
-            ? `Paiement confirmé pour ${modal.payout.influencer.name}.`
-            : `Demande annulée — points remboursés.`,
+            ? `Paiement de ${fcfa(modal.payout.amountFcfa)} confirmé pour ${modal.payout.user.name} via ${paymentLabel(modal.payout.paymentMethod)}.`
+            : `Demande annulée — les points de ${modal.payout.user.name} seront remboursés.`,
       });
       setModal(null);
     } catch (err: any) {
@@ -101,19 +120,50 @@ export default function PayoutsList() {
 
   const columns: Column<PayoutRequest>[] = [
     {
-      cle: "influencer",
+      cle: "user",
       entete: "Influenceur",
       rendu: (p) => (
-        <div className="min-w-0">
-          <p className="truncate font-semibold text-secondary">{p.influencer.name}</p>
-          <p className="truncate text-xs text-slate-400">{p.influencer.email}</p>
+        <div className="flex items-center gap-3">
+          {p.user.avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={p.user.avatar} alt={p.user.name} className="h-8 w-8 shrink-0 rounded-full object-cover" />
+          ) : (
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary-dark">
+              {p.user.name.slice(0, 2).toUpperCase()}
+            </span>
+          )}
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-secondary">{p.user.name}</p>
+            <p className="truncate text-xs text-slate-400">{p.user.email}</p>
+          </div>
         </div>
       ),
     },
     {
-      cle: "amount",
+      cle: "amountFcfa",
       entete: "Montant",
-      rendu: (p) => <Badge tone="info">{fcfa(p.amount)}</Badge>,
+      rendu: (p) => (
+        <div>
+          <Badge tone="info">{fcfa(p.amountFcfa)}</Badge>
+          <p className="mt-0.5 text-xs text-slate-400">{p.pointsConverted} pts</p>
+        </div>
+      ),
+    },
+    {
+      cle: "paymentMethod",
+      entete: "Paiement",
+      masquerMobile: true,
+      rendu: (p) => (
+        <div className="flex items-center gap-1.5">
+          <Smartphone className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-secondary">{paymentLabel(p.paymentMethod)}</p>
+            {p.paymentDetails && (
+              <p className="text-xs text-slate-400">{p.paymentDetails}</p>
+            )}
+          </div>
+        </div>
+      ),
     },
     {
       cle: "createdAt",
@@ -221,10 +271,18 @@ export default function PayoutsList() {
             </DialogTitle>
             <DialogDescription>
               {modal?.action === "completed"
-                ? `Confirmer le paiement de ${fcfa(modal?.payout.amount ?? 0)} à ${modal?.payout.influencer.name}.`
-                : `Annuler la demande de ${modal?.payout.influencer.name}. Les points seront automatiquement remboursés.`}
+                ? `Confirmer le paiement de ${fcfa(modal?.payout.amountFcfa ?? 0)} à ${modal?.payout.user.name} via ${paymentLabel(modal?.payout.paymentMethod ?? "")}.`
+                : `Annuler la demande de ${modal?.payout.user.name}. Les points seront automatiquement remboursés.`}
             </DialogDescription>
           </DialogHeader>
+
+          {modal?.payout.paymentDetails && (
+            <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-sm">
+              <Smartphone className="h-4 w-4 shrink-0 text-slate-400" />
+              <span className="text-slate-500">{paymentLabel(modal.payout.paymentMethod)}</span>
+              <span className="font-semibold text-secondary">{modal.payout.paymentDetails}</span>
+            </div>
+          )}
 
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-secondary">
@@ -243,7 +301,7 @@ export default function PayoutsList() {
             />
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter>
             <button
               type="button"
               onClick={() => setModal(null)}

@@ -45,8 +45,6 @@ const AVATAR_COLORS = [
 ];
 function avatarColor(id: number) { return AVATAR_COLORS[id % AVATAR_COLORS.length]; }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function Row({
   label,
   valeur,
@@ -91,8 +89,6 @@ function formatDate(iso: string) {
   });
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
 export default function DetailCommandePage() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
@@ -105,12 +101,14 @@ export default function DetailCommandePage() {
   const [showDeliveryDialog, setShowDeliveryDialog] = useState(false);
   const [creatingDelivery, setCreatingDelivery] = useState(false);
 
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [drivers, setDrivers] = useState<User[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
   const [driverSearch, setDriverSearch] = useState("");
   const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
-
 
   const loadDrivers = useCallback(() => {
     setSelectedDriverId(null);
@@ -135,6 +133,25 @@ export default function DetailCommandePage() {
 
   const openAssignDialog = useCallback(() => setShowAssignDialog(true), []);
 
+  const handleCancelOrder = async () => {
+    if (!order) return;
+    setCancelling(true);
+    try {
+      await axiosClient.post(`/v1/admin/orders/${order.id}/cancel`);
+      toast({
+        title: "Commande annulée",
+        description: `La commande ${order.orderNumber} a été annulée.`,
+      });
+      setShowCancelDialog(false);
+      fetchOrder();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? "Impossible d'annuler la commande.";
+      toast({ title: "Erreur", description: msg, variant: "destructive" });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const handleConfirmOrder = async () => {
     if (!order) return;
     setConfirmingOrder(true);
@@ -152,7 +169,6 @@ export default function DetailCommandePage() {
       setConfirmingOrder(false);
     }
   };
-
 
   const fetchOrder = useCallback(() => {
     setLoading(true);
@@ -190,7 +206,6 @@ export default function DetailCommandePage() {
       const alreadyExists =
         status === 422 && msg.toLowerCase().includes("déjà en cours");
 
-      // Livraison existante + livreur sélectionné → refetch puis force-assign
       if (alreadyExists && selectedDriverId !== null) {
         try {
           const { data: fresh } = await axiosClient.get<OrderDetail>(`/v1/orders/${order.id}`);
@@ -234,7 +249,6 @@ export default function DetailCommandePage() {
 
   return (
     <div className="space-y-6">
-      {/* ── Header ────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="secondary" href="/orders" className="px-2.5!">
           <ArrowLeft className="h-4 w-4" />
@@ -247,10 +261,8 @@ export default function DetailCommandePage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* ── Left column ───────────────────────────────────────────────── */}
         <div className="space-y-4 lg:col-span-2">
 
-          {/* Articles */}
           <SectionCard title="Articles">
             <div className="space-y-3">
               {order.items.map((item) => (
@@ -282,7 +294,6 @@ export default function DetailCommandePage() {
               )}
             </div>
 
-            {/* Totaux */}
             <dl className="mt-5 space-y-2 border-t border-slate-100 pt-4 text-sm">
               <Row label="Sous-total"  valeur={fcfa(order.subtotal)}    />
               <Row label="Livraison"   valeur={fcfa(order.shippingCost)} />
@@ -301,14 +312,12 @@ export default function DetailCommandePage() {
             </dl>
           </SectionCard>
 
-          {/* Notes */}
           {order.notes && (
             <SectionCard title="Notes du client">
               <p className="text-sm text-slate-600">{order.notes}</p>
             </SectionCard>
           )}
 
-          {/* Payments history */}
           {order.payments.length > 0 && (
             <SectionCard title="Historique des paiements">
               <div className="space-y-2">
@@ -338,11 +347,9 @@ export default function DetailCommandePage() {
             </SectionCard>
           )}
 
-          {/* Actions */}
           <div className="flex flex-wrap gap-2">
             {order.status === "pending" && (
-              // <Button onClick={handleConfirmOrder} disabled={confirmingOrder}>
-              <Button onClick={handleConfirmOrder} disabled={true}>                
+              <Button onClick={handleConfirmOrder} disabled={true}>
                 {confirmingOrder && <Loader2 className="h-4 w-4 animate-spin" />}
                 Confirmer la commande
               </Button>
@@ -366,20 +373,17 @@ export default function DetailCommandePage() {
               <Button>Marquer comme livrée</Button>
             )}
             {order.status !== "cancelled" && order.status !== "delivered" && (
-              <Button variant="ghost" className="text-danger!">
+              <Button variant="ghost" className="text-danger!" onClick={() => setShowCancelDialog(true)}>
                 Annuler la commande
               </Button>
             )}
           </div>
         </div>
 
-        {/* ── Right column ──────────────────────────────────────────────── */}
         <div className="space-y-4">
 
-          {/* Client / Adresse */}
           <SectionCard title="Destinataire">
             <div className="space-y-4">
-              {/* Compte client */}
               {order.user ? (
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Client</p>
@@ -405,7 +409,6 @@ export default function DetailCommandePage() {
                 </p>
               )}
 
-              {/* Adresse de livraison */}
               {addr ? (
                 <div className="space-y-2 border-t border-slate-100 pt-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Adresse de livraison</p>
@@ -440,7 +443,6 @@ export default function DetailCommandePage() {
             </div>
           </SectionCard>
 
-          {/* Paiement */}
           <SectionCard title="Paiement">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -456,7 +458,6 @@ export default function DetailCommandePage() {
             </div>
           </SectionCard>
 
-          {/* Livraison */}
           <SectionCard title="Livraison">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -525,7 +526,6 @@ export default function DetailCommandePage() {
         </div>
       </div>
 
-      {/* ── Dialog : assigner un livreur ─────────────────────────────────── */}
       {(() => {
         const delivery = (order.deliveries ?? []).find((d) => d.status !== "failed");
         if (!delivery) return null;
@@ -539,7 +539,40 @@ export default function DetailCommandePage() {
         );
       })()}
 
-      {/* ── Dialog : créer une livraison ──────────────────────────────────── */}
+      <Dialog
+        open={showCancelDialog}
+        onOpenChange={(o) => { if (!o) setShowCancelDialog(false); }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Annuler la commande</DialogTitle>
+            <DialogDescription>
+              La commande <strong>{order.orderNumber}</strong> sera annulée. Cette action est irréversible.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setShowCancelDialog(false)}
+              disabled={cancelling}
+              className="flex-1 rounded-xl border border-slate-200 bg-surface py-2 text-sm font-semibold text-secondary transition hover:bg-slate-50 disabled:opacity-40"
+            >
+              Fermer
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelOrder}
+              disabled={cancelling}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-danger py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+            >
+              {cancelling && <Loader2 className="h-4 w-4 animate-spin" />}
+              Confirmer
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showDeliveryDialog} onOpenChange={(o) => { if (!o) setShowDeliveryDialog(false); }}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
@@ -550,7 +583,6 @@ export default function DetailCommandePage() {
             </DialogDescription>
           </DialogHeader>
 
-          {/* Zone selector */}
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-secondary">
               Zone de livraison
@@ -579,7 +611,6 @@ export default function DetailCommandePage() {
             />
           </div>
 
-          {/* Search */}
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -595,7 +626,6 @@ export default function DetailCommandePage() {
             )}
           </div>
 
-          {/* Driver list */}
           <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-100">
             {loadingDrivers ? (
               <div className="flex items-center justify-center py-8">
@@ -609,7 +639,6 @@ export default function DetailCommandePage() {
               if (filtered.length === 0)
                 return <p className="py-8 text-center text-sm text-slate-400">Aucun livreur disponible</p>;
               return [
-                /* "Sans livreur" option */
                 <button
                   key="none"
                   type="button"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Loader2, Mail, Phone, Tag } from "lucide-react";
+import { ArrowLeft, Calendar, Loader2, Mail, Phone, Tag } from "lucide-react";
 import { PageHeader, Button, SectionCard, Badge } from "@/components/ui/primitives";
 import { Toggle } from "@/components/ui/Field";
 import { BadgeActif } from "@/components/ui/statuts";
@@ -11,7 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { fcfa } from "@/lib/format";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import ErrorAlert from "@/components/ui/ErrorAlert";
-import type { Influencer } from "@/types/influencer";
+import type { Influencer, InfluencerCoupon } from "@/types/influencer";
+import RegenerateCouponDialog from "./RegenerateCouponDialog";
 
 interface Props {
   influencerId: number;
@@ -166,7 +167,17 @@ export default function InfluencerDetail({ influencerId }: Props) {
 
         {/* ── Right: coupons ── */}
         <div>
-          <SectionCard title="Coupons associés">
+          <SectionCard
+            title="Coupons associés"
+            action={
+              <RegenerateCouponDialog
+                influencerId={influencerId}
+                onSuccess={(coupons: InfluencerCoupon[]) =>
+                  setInfluencer((prev) => prev ? { ...prev, coupons } : prev)
+                }
+              />
+            }
+          >
             {!influencer.coupons || influencer.coupons.length === 0 ? (
               <p className="text-sm text-slate-400">Aucun coupon associé</p>
             ) : (
@@ -174,18 +185,32 @@ export default function InfluencerDetail({ influencerId }: Props) {
                 {influencer.coupons.map((c) => (
                   <li
                     key={c.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2.5"
+                    className="rounded-xl border border-slate-100 px-3 py-3 space-y-2"
                   >
-                    <div className="flex items-center gap-2">
-                      <Tag className="h-4 w-4 shrink-0 text-slate-400" />
-                      <span className="font-mono text-sm font-semibold text-secondary">
-                        {c.code}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge tone="neutral">{c.usedCount} utilisations</Badge>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Tag className="h-4 w-4 shrink-0 text-slate-400" />
+                        <span className="font-mono text-sm font-semibold text-secondary">
+                          {c.code}
+                        </span>
+                      </div>
                       <BadgeActif actif={c.isActive} />
                     </div>
+                    <div className="flex flex-wrap gap-2">
+                      {c.value != null && (
+                        <Badge tone="primary">{c.value}% de réduction</Badge>
+                      )}
+                      <Badge tone="neutral">{c.usedCount}{c.maxUses != null ? `/${c.maxUses}` : ""} util.</Badge>
+                      {c.minOrderAmount != null && (
+                        <Badge tone="neutral">Min. {fcfa(c.minOrderAmount)}</Badge>
+                      )}
+                    </div>
+                    {c.expiresAt && (
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                        <Calendar className="h-3 w-3" />
+                        Expire le {new Date(c.expiresAt).toLocaleDateString("fr-FR")}
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>

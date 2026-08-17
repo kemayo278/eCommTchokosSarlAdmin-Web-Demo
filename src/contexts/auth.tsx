@@ -15,12 +15,14 @@ import type { LoginResponse, User } from "@/types/user";
 interface AuthState {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
-  logout: () => void;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<LoginResponse>;
+  logout: (uid?: number) => void;
   patchUser: (patch: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
+
+export const ALLOWED = ["super_admin", "admin", "manager", "developpeur"];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -42,6 +44,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .get<{ user: User } | User>("/v1/user")
       .then(({ data }) => {
         const u = "user" in data ? data.user : data;
+        if (!u.roles.some((r) => ALLOWED.includes(r))) {
+          setAuthToken(null);
+          return;
+        }
         setUser(u);
         widgetSession.set({
           id: u.id,
@@ -56,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = useCallback(async (email: string, password: string, rememberMe = false) => {
+  const login = useCallback(async (email: string, password: string, rememberMe = false): Promise<LoginResponse> => {
     const { data } = await axiosClient.post<LoginResponse>("/v1/login", {
       email,
       password,
@@ -71,11 +77,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       avatar: data.user.avatar,
       phone: data.user.phone,
     });
+    return data;
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback((uid?: number) => {
     axiosClient.post("/v1/logout").catch(() => {});
-    if (user) widgetSession.clear(user.id);
+    const id = uid ?? user?.id;
+    if (id !== undefined) widgetSession.clear(id);
     setAuthToken(null);
     setUser(null);
   }, [user]);

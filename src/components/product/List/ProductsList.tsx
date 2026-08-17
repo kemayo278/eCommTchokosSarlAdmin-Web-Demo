@@ -71,7 +71,7 @@ function ActionMenu({ product, toggling, onToggle, onShare, onDelete }: ActionMe
   const openMenu = () => {
     if (triggerRef.current) {
       const r = triggerRef.current.getBoundingClientRect();
-      setPos({ top: r.bottom + window.scrollY + 4, right: window.innerWidth - r.right });
+      setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
     }
     setOpen(true);
   };
@@ -182,7 +182,6 @@ interface ProductsResponse {
 }
 
 export default function ProductsList() {
-  // ── Server state ──────────────────────────────────────────────────────────
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -192,19 +191,16 @@ export default function ProductsList() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(100);
 
-  // ── Actions state ─────────────────────────────────────────────────────────
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [copyToast, setCopyToast] = useState(false);
 
-  // ── Client filters ────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortKey>("id_desc");
 
-  // ── Fetch page ────────────────────────────────────────────────────────────
   const fetchProducts = useCallback(() => {
     setLoading(true);
     setError(null);
@@ -217,7 +213,6 @@ export default function ProductsList() {
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
-  // ── Actions ───────────────────────────────────────────────────────────────
   const handleToggleActive = async (product: Product) => {
     setTogglingId(product.id);
     try {
@@ -252,7 +247,6 @@ export default function ProductsList() {
     });
   };
 
-  // ── Client filter + sort ──────────────────────────────────────────────────
   const displayed = useMemo(() => {
     const q = search.trim().toLowerCase();
     const filtered = products.filter((p) => {
@@ -272,7 +266,6 @@ export default function ProductsList() {
     });
   }, [products, search, catFilter, statusFilter, sort]);
 
-  // ── Columns (depend on action handlers → inside component) ────────────────
   const tableColumns = useMemo<Column<Product>[]>(() => [
     {
       cle: "nom",
@@ -334,7 +327,6 @@ export default function ProductsList() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [togglingId]);
 
-  // ── Category options ──────────────────────────────────────────────────────
   const categoryOptions = useMemo(() => {
     const map = new Map<number, string>();
     for (const p of products) map.set(p.categoryId, p.category.name);

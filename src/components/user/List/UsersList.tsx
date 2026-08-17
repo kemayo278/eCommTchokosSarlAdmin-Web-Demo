@@ -20,7 +20,6 @@ import type { User, UserMeta, UsersResponse } from "@/types/user";
 
 const PER_PAGE_OPTIONS = [20, 50, 100] as const;
 
-// ── Role config ─────────────────────────────────────────────────────────────
 type RoleKey = "super_admin" | "admin" | "manager" | "developpeur" | "livreur" | "customer";
 
 const ROLE_CONFIG: Record<RoleKey, { label: string; tone: Tone }> = {
@@ -38,7 +37,6 @@ function getRoleConfig(role: string): { label: string; tone: Tone } {
   return ROLE_CONFIG[role as RoleKey] ?? { label: role, tone: "neutral" };
 }
 
-// ── Avatar ───────────────────────────────────────────────────────────────────
 const AVATAR_COLORS = [
   "bg-primary text-white", "bg-info-soft text-info", "bg-warn-soft text-warn",
   "bg-danger-soft text-danger", "bg-primary-soft text-primary-dark",
@@ -50,7 +48,7 @@ function initials(name: string) {
   return name.split(" ").map((w) => w[0] ?? "").join("").slice(0, 2).toUpperCase();
 }
 
-// ── Columns ──────────────────────────────────────────────────────────────────
+
 const columns: Column<User>[] = [
   {
     cle: "name",
@@ -111,7 +109,6 @@ const columns: Column<User>[] = [
   },
 ];
 
-// ── Component ─────────────────────────────────────────────────────────────────
 type StatusFilter = "all" | "active" | "inactive";
 
 export default function UsersList() {
@@ -183,7 +180,7 @@ export default function UsersList() {
             : `${meta.total} utilisateur(s) enregistré(s)`
         }
         action={
-          <Button>
+          <Button href="/settings/users/new">
             <Plus className="h-4 w-4" /> Inviter un utilisateur
           </Button>
         }
@@ -290,7 +287,7 @@ export default function UsersList() {
           </p>
         </div>
       ) : (
-        <DataTable columns={columns} rows={displayed} />
+        <DataTable columns={columns} rows={displayed} link={(u) => `/settings/users/${u.id}`} />
       )}
 
       {/* ── Pagination ── */}

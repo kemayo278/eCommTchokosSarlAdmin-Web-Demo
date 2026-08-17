@@ -17,8 +17,6 @@ import axiosClient from "@/lib/api/axiosClient";
 import { handleApiError } from "@/lib/api/handleApiError";
 import { useToast } from "@/hooks/use-toast";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface Review {
   id: number;
   userId: number;
@@ -30,8 +28,6 @@ interface Review {
   createdAt: string;
   updatedAt: string;
 }
-
-// ─── Star rating ──────────────────────────────────────────────────────────────
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -56,8 +52,6 @@ function formatDate(iso: string) {
     year: "numeric",
   });
 }
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AvisPage() {
   const { toast } = useToast();

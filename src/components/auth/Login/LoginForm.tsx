@@ -1,17 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
-import { useAuth } from "@/contexts/auth";
+import { ALLOWED, useAuth } from "@/contexts/auth";
+import { setAuthToken } from "@/lib/api/axiosClient";
 import { AuthSidePanel } from "@/components/auth/AuthSidePanel";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { handleApiError } from "@/lib/api/handleApiError";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LoginForm() {
-  const { user, loading, login } = useAuth();
+  const { user, loading, login, logout } = useAuth();
+  const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") ?? "/dashboard";
 
   const [email, setEmail] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
@@ -21,7 +26,14 @@ export default function LoginForm() {
   const [envoi, setEnvoi] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) router.replace("/dashboard");
+    setAuthToken(null);
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith("tc-widget-session-")) localStorage.removeItem(key);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!loading && user) router.replace(redirectTo);
   }, [loading, user, router]);
 
   useEffect(() => {
@@ -41,9 +53,20 @@ export default function LoginForm() {
     } else {
       localStorage.removeItem("tc_remember_email");
     }
+
     try {
-      await login(email, motDePasse, rememberMe);
-      router.replace("/dashboard");
+      const data = await login(email, motDePasse, rememberMe);
+      const hasAccess = data.user.roles.some((r) => ALLOWED.includes(r));
+      if (!hasAccess) {
+        logout(data.user.id);
+        toast({
+          title: "Accès refusé",
+          description: "Vous n'avez pas les droits nécessaires pour accéder à cette interface.",
+          variant: "destructive"
+        });
+        return;
+      }
+      router.replace(redirectTo);
     } catch (err: any) {
       const message = handleApiError(err);
       setErreur(message);
@@ -81,7 +104,7 @@ export default function LoginForm() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@tchokos.cm"
+                placeholder=""
                 className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-slate-400"
               />
             </div>

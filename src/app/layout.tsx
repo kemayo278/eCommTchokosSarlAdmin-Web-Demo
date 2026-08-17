@@ -11,7 +11,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Tchokos Admin",
+  title: "Tchokos Sarl Admin",
   description: "Espace d'administration — Tchokos Sarl",
 };
 

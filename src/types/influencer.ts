@@ -23,6 +23,10 @@ export interface Influencer {
 export interface InfluencerCoupon {
   id: number;
   code: string;
+  value: number | null;
+  minOrderAmount: number | null;
+  maxUses: number | null;
+  expiresAt: string | null;
   usedCount: number;
   isActive: boolean;
 }
@@ -37,13 +41,21 @@ export interface InfluencerStats {
 
 export interface PayoutRequest {
   id: number;
-  influencer: {
+  userId: number;
+  user: {
     id: number;
     name: string;
     email: string;
+    phone: string | null;
+    avatar: string | null;
   };
-  amount: number;
+  pointsConverted: number;
+  amountFcfa: number;
+  paymentMethod: string;
+  paymentDetails: string | null;
   status: "pending" | "completed" | "cancelled";
+  processedAt: string | null;
+  processedBy: unknown | null;
   notes: string | null;
   createdAt: string;
 }
