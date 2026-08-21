@@ -105,6 +105,7 @@ export const nav: NavGroup[] = [
       { label: "Paiements", href: "/settings/payments" },
       { label: "Zones de Livraison", href: "/settings/shipping" },
       { label: "Utilisateurs & rôles", href: "/settings/users" },
+      { label: "Héros images", href: "/settings/hero-images" },
     ],
   },
 ];
